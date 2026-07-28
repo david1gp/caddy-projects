@@ -54,6 +54,8 @@ async function main() {
   const adminUrl = flagValue(argv, "--admin-url") ?? "http://localhost:2019"
   const caddyBin = flagValue(argv, "--caddy-bin") ?? "caddy"
   const noPush = flagHas(argv, "--no-push")
+  const skipValidate = flagHas(argv, "--skip-validate")
+  const skipReload = flagHas(argv, "--skip-reload")
   const isRoot = process.getuid?.() === 0
 
   let users: string[]
@@ -88,6 +90,8 @@ async function main() {
     caddy,
     caddyBin,
     adminUrl,
+    skipValidate,
+    skipReload,
   }
 
   mkdirSync(socketDir, { recursive: true })
