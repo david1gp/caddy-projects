@@ -63,4 +63,14 @@ describe("projectSchema", () => {
     if (!r.success) return
     expect("user" in r.output).toBe(false)
   })
+
+  test("projectInputSchema allows omitted port", () => {
+    const r = a.safeParse(projectInputSchema, {
+      domains: ["a.example"],
+      name: "foo",
+    })
+    expect(r.success).toBe(true)
+    if (!r.success) return
+    expect(r.output.port).toBeUndefined()
+  })
 })

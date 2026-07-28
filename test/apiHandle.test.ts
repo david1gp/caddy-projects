@@ -204,7 +204,79 @@ describe("apiHandle", () => {
     expect(j.data.length).toBeGreaterThanOrEqual(1)
   })
 
-  test("failed apply reverts git write", async () => {
+  test("port conflict 409 on create and edit", async () => {
+    const [alice, bob] = await sharedStoreCtx(["alice", "bob"])
+    const createAlice = await apiHandle(
+      req("POST", "/projects", { name: "a1", port: 3000, domains: ["a1.example"], docs: false }),
+      alice,
+    )
+    expect(createAlice.status).toBe(201)
+
+    const createBob = await apiHandle(
+      req("POST", "/projects", { name: "b1", port: 3000, domains: ["b1.example"], docs: false }),
+      bob,
+    )
+    expect(createBob.status).toBe(409)
+    const bobJ = await json(createBob)
+    expect(bobJ.errorMessage).toContain("port conflict: 3000 used by alice/a1")
+
+    await apiHandle(req("POST", "/projects", { name: "b2", port: 3001, domains: ["b2.example"], docs: false }), bob)
+    const editBob = await apiHandle(req("PATCH", "/projects/b2", { port: 3000 }), bob)
+    expect(editBob.status).toBe(409)
+    const editJ = await json(editBob)
+    expect(editJ.errorMessage).toContain("port conflict: 3000 used by alice/a1")
+  })
+
+  test("auto-assigned port returned on create", async () => {
+    const ctx = await ctxFor("alice")
+    const res = await apiHandle(req("POST", "/projects", { name: "auto", domains: ["auto.example"], docs: false }), ctx)
+    expect(res.status).toBe(201)
+    const j = await json(res)
+    expect(j.success).toBe(true)
+    expect(j.data.port).toBe(3000)
+
+    const res2 = await apiHandle(
+      req("POST", "/projects", { name: "auto2", domains: ["auto2.example"], docs: false }),
+      ctx,
+    )
+    expect(res2.status).toBe(201)
+    const j2 = await json(res2)
+    expect(j2.data.port).toBe(3001)
+  })
+
+  test("delete by port success and 404 for other user", async () => {
+    const [alice, bob] = await sharedStoreCtx(["alice", "bob"])
+    await apiHandle(req("POST", "/projects", { name: "a1", port: 3000, domains: ["a1.example"], docs: false }), alice)
+    await apiHandle(req("POST", "/projects", { name: "b1", port: 3001, domains: ["b1.example"], docs: false }), bob)
+
+    const bobTriesAlice = await apiHandle(req("DELETE", "/projects/by-port/3000"), bob)
+    expect(bobTriesAlice.status).toBe(404)
+    const notFound = await json(bobTriesAlice)
+    expect(notFound.errorMessage).toBe("no project with port 3000")
+
+    const del = await apiHandle(req("DELETE", "/projects/by-port/3000"), alice)
+    expect(del.status).toBe(200)
+    const delJ = await json(del)
+    expect(delJ.data.deleted).toBe("a1")
+
+    const list = await json(await apiHandle(req("GET", "/projects"), alice))
+    expect(list.data.length).toBe(0)
+  })
+
+  test("POST /regenerate works; POST /apply 404s", async () => {
+    const ctx = await ctxFor("alice")
+    await apiHandle(req("POST", "/projects", { name: "app", port: 4000, domains: ["app.example"], docs: false }), ctx)
+    const regen = await apiHandle(req("POST", "/regenerate"), ctx)
+    expect(regen.status).toBe(200)
+    const regenJ = await json(regen)
+    expect(regenJ.success).toBe(true)
+    expect(regenJ.data.apps.http).toBeDefined()
+
+    const apply = await apiHandle(req("POST", "/apply"), ctx)
+    expect(apply.status).toBe(404)
+  })
+
+  test("failed regenerate reverts git write", async () => {
     const dir = tempDir("caddy-projects-api-revert-")
     const openR = await projectStoreOpen({
       dir,

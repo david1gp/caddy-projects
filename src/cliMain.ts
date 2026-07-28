@@ -138,7 +138,7 @@ Usage:
   caddy-projects delete <name>
   caddy-projects config [--pretty]
   caddy-projects history [--name x] [--limit n]
-  caddy-projects apply
+  caddy-projects regenerate
   caddy-projects --help | --version
 
 Global:
@@ -226,10 +226,10 @@ export async function cliMain(argv: string[]): PromiseResult<string> {
     return createResult(JSON.stringify(r.data, null, 2))
   }
 
-  if (cmd === "apply") {
-    const r = await apiFetch(socketPath, "/apply", { method: "POST" })
+  if (cmd === "regenerate") {
+    const r = await apiFetch(socketPath, "/regenerate", { method: "POST" })
     if (!r.success) return r
-    return createResult("applied")
+    return createResult("regenerated")
   }
 
   return createResultError(op, `unknown command: ${cmd}`)

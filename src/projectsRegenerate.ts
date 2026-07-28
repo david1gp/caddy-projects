@@ -7,16 +7,21 @@ import { caddyConfigValidate } from "./caddyConfigValidate.js"
 import type { ProjectStore } from "./ProjectStore.js"
 import { projectStoreListAll } from "./projectStoreListAll.js"
 
-export type ProjectsApplyOptions = {
+export type ProjectsRegenerateOptions = {
   caddy: CaddyConfigOptions
   skipValidate?: boolean
   skipReload?: boolean
   caddyBin?: string
   adminUrl?: string
+  /** default { from: 3000, to: 3999 } for auto port assignment on create */
+  portRange?: { from: number; to: number }
 }
 
-export async function projectsApply(store: ProjectStore, options: ProjectsApplyOptions): PromiseResult<CaddyConfig> {
-  const op = "projectsApply"
+export async function projectsRegenerate(
+  store: ProjectStore,
+  options: ProjectsRegenerateOptions,
+): PromiseResult<CaddyConfig> {
+  const op = "projectsRegenerate"
   const listR = await projectStoreListAll(store)
   if (!listR.success) return listR
 

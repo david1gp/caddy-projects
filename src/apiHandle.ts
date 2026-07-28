@@ -3,20 +3,22 @@ import { createResultError, type ResultErr } from "#result"
 import type { CaddyConfig } from "./CaddyConfig.js"
 import type { ProjectStore } from "./ProjectStore.js"
 import { projectMutableBy } from "./projectMutableBy.js"
+import { projectPortCollision } from "./projectPortCollision.js"
+import { projectPortNext } from "./projectPortNext.js"
 import { type Project, type ProjectInput, projectInputSchema, projectSchema } from "./projectSchema.js"
 import { projectStoreGet } from "./projectStoreGet.js"
 import { projectStoreHistory } from "./projectStoreHistory.js"
 import { projectStoreListAll } from "./projectStoreListAll.js"
 import { projectStorePut } from "./projectStorePut.js"
 import { projectStoreRemove } from "./projectStoreRemove.js"
-import type { ProjectsApplyOptions } from "./projectsApply.js"
-import { projectsApply } from "./projectsApply.js"
+import type { ProjectsRegenerateOptions } from "./projectsRegenerate.js"
+import { projectsRegenerate } from "./projectsRegenerate.js"
 import { projectVisibleTo } from "./projectVisibleTo.js"
 
 export type ApiContext = {
   user: string
   store: ProjectStore
-  options: ProjectsApplyOptions
+  options: ProjectsRegenerateOptions
 }
 
 function jsonOk(data: unknown, status = 200): Response {
@@ -60,15 +62,30 @@ function domainCollision(
   return null
 }
 
-type ApplyResult = { success: true; data: unknown } | ResultErr
+type RegenerateResult = { success: true; data: unknown } | ResultErr
 
-async function applyOrRevert(ctx: ApiContext, revert: () => Promise<ApplyResult>): Promise<ApplyResult> {
-  const applyR = await projectsApply(ctx.store, ctx.options)
-  if (!applyR.success) {
+async function regenerateOrRevert(ctx: ApiContext, revert: () => Promise<RegenerateResult>): Promise<RegenerateResult> {
+  const regenR = await projectsRegenerate(ctx.store, ctx.options)
+  if (!regenR.success) {
     await revert()
-    return applyR
+    return regenR
   }
-  return applyR
+  return regenR
+}
+
+async function projectDelete(ctx: ApiContext, existing: Project): Promise<Response> {
+  if (!projectMutableBy(existing, ctx.user)) {
+    return jsonErr(createResultError("apiHandle.delete", "forbidden"), 403)
+  }
+  const name = existing.name
+  const delR = await projectStoreRemove(ctx.store, ctx.user, name, `delete project ${ctx.user}/${name}`)
+  if (!delR.success) return jsonErr(delR, 500)
+
+  const regenR = await regenerateOrRevert(ctx, async () =>
+    projectStorePut(ctx.store, existing, `revert delete ${ctx.user}/${name}`),
+  )
+  if (!regenR.success) return jsonErr(regenR, 500)
+  return jsonOk({ deleted: name })
 }
 
 export async function apiHandle(request: Request, ctx: ApiContext): Promise<Response> {
@@ -91,6 +108,18 @@ export async function apiHandle(request: Request, ctx: ApiContext): Promise<Resp
       items = items.filter((p) => p.template === true)
     }
     return jsonOk(items)
+  }
+
+  const byPortMatch = path.match(/^\/projects\/by-port\/(\d+)$/)
+  if (byPortMatch && method === "DELETE") {
+    const port = Number(byPortMatch[1])
+    const listR = await projectStoreListAll(ctx.store)
+    if (!listR.success) return jsonErr(listR, 500)
+    const found = listR.data.find((p) => p.user === ctx.user && p.port === port)
+    if (!found) {
+      return jsonErr(createResultError("apiHandle.deleteByPort", `no project with port ${port}`), 404)
+    }
+    return projectDelete(ctx, found)
   }
 
   const projectMatch = path.match(/^\/projects\/([^/]+)$/)
@@ -124,7 +153,11 @@ export async function apiHandle(request: Request, ctx: ApiContext): Promise<Resp
             400,
           )
         }
-        next = { ...(parsed.output as ProjectInput), user: ctx.user, name }
+        const input = parsed.output as ProjectInput
+        if (input.port === undefined) {
+          return jsonErr(createResultError("apiHandle.put", "port is required on full replace"), 400)
+        }
+        next = { ...input, port: input.port, user: ctx.user, name }
       } else {
         const patch = bodyR.data as Record<string, unknown>
         const merged = { ...existingR.data, ...patch, user: ctx.user, name }
@@ -141,15 +174,22 @@ export async function apiHandle(request: Request, ctx: ApiContext): Promise<Resp
       if (collision) {
         return jsonErr(createResultError("apiHandle.edit", `domain conflict: ${collision}`), 409)
       }
+      const portHit = projectPortCollision(allR.data, next.port, name, ctx.user)
+      if (portHit) {
+        return jsonErr(
+          createResultError("apiHandle.edit", `port conflict: ${next.port} used by ${portHit.user}/${portHit.name}`),
+          409,
+        )
+      }
 
       const old = existingR.data
       const putR = await projectStorePut(ctx.store, next, `edit project ${ctx.user}/${name}`)
       if (!putR.success) return jsonErr(putR, 500)
 
-      const applyR = await applyOrRevert(ctx, async () =>
+      const regenR = await regenerateOrRevert(ctx, async () =>
         projectStorePut(ctx.store, old, `revert edit ${ctx.user}/${name}`),
       )
-      if (!applyR.success) return jsonErr(applyR, 500)
+      if (!regenR.success) return jsonErr(regenR, 500)
       return jsonOk(next)
     }
 
@@ -158,18 +198,7 @@ export async function apiHandle(request: Request, ctx: ApiContext): Promise<Resp
       if (!existingR.success) {
         return jsonErr(createResultError("apiHandle.delete", `not found: ${name}`), 404)
       }
-      if (!projectMutableBy(existingR.data, ctx.user)) {
-        return jsonErr(createResultError("apiHandle.delete", "forbidden"), 403)
-      }
-      const old = existingR.data
-      const delR = await projectStoreRemove(ctx.store, ctx.user, name, `delete project ${ctx.user}/${name}`)
-      if (!delR.success) return jsonErr(delR, 500)
-
-      const applyR = await applyOrRevert(ctx, async () =>
-        projectStorePut(ctx.store, old, `revert delete ${ctx.user}/${name}`),
-      )
-      if (!applyR.success) return jsonErr(applyR, 500)
-      return jsonOk({ deleted: name })
+      return projectDelete(ctx, existingR.data)
     }
   }
 
@@ -181,51 +210,67 @@ export async function apiHandle(request: Request, ctx: ApiContext): Promise<Resp
       return jsonErr(createResultError("apiHandle.create", a.summarize(parsed.issues), JSON.stringify(bodyR.data)), 400)
     }
     const input = parsed.output as ProjectInput
-    const project: Project = { ...input, user: ctx.user }
 
-    const existsR = await projectStoreGet(ctx.store, ctx.user, project.name)
+    const existsR = await projectStoreGet(ctx.store, ctx.user, input.name)
     if (existsR.success) {
-      return jsonErr(createResultError("apiHandle.create", `already exists: ${project.name}`), 409)
+      return jsonErr(createResultError("apiHandle.create", `already exists: ${input.name}`), 409)
     }
 
     const allR = await projectStoreListAll(ctx.store)
     if (!allR.success) return jsonErr(allR, 500)
-    const collision = domainCollision(allR.data, project.domains)
+    const collision = domainCollision(allR.data, input.domains)
     if (collision) {
       return jsonErr(createResultError("apiHandle.create", `domain conflict: ${collision}`), 409)
     }
 
+    let port = input.port
+    if (port === undefined) {
+      const nextR = projectPortNext(allR.data, ctx.options.portRange)
+      if (!nextR.success) return jsonErr(nextR, 400)
+      port = nextR.data
+    } else {
+      const portHit = projectPortCollision(allR.data, port)
+      if (portHit) {
+        return jsonErr(
+          createResultError("apiHandle.create", `port conflict: ${port} used by ${portHit.user}/${portHit.name}`),
+          409,
+        )
+      }
+    }
+
+    const project: Project = { ...input, port, user: ctx.user }
+
     const putR = await projectStorePut(ctx.store, project, `create project ${ctx.user}/${project.name}`)
     if (!putR.success) return jsonErr(putR, 500)
 
-    const applyR = await applyOrRevert(ctx, async () =>
+    const regenR = await regenerateOrRevert(ctx, async () =>
       projectStoreRemove(ctx.store, ctx.user, project.name, `revert create ${ctx.user}/${project.name}`),
     )
-    if (!applyR.success) return jsonErr(applyR, 500)
+    if (!regenR.success) return jsonErr(regenR, 500)
     return jsonOk(project, 201)
   }
 
   if (method === "GET" && path === "/config") {
-    const applyR = await projectsApply(ctx.store, {
+    const regenR = await projectsRegenerate(ctx.store, {
       ...ctx.options,
       skipReload: true,
       skipValidate: true,
     })
-    if (!applyR.success) return jsonErr(applyR, 500)
+    if (!regenR.success) return jsonErr(regenR, 500)
     const pretty = url.searchParams.get("pretty") === "1"
     if (pretty) {
-      return new Response(JSON.stringify(applyR.data, null, 2), {
+      return new Response(JSON.stringify(regenR.data, null, 2), {
         status: 200,
         headers: { "content-type": "application/json" },
       })
     }
-    return jsonOk(applyR.data)
+    return jsonOk(regenR.data)
   }
 
-  if (method === "POST" && path === "/apply") {
-    const applyR = await projectsApply(ctx.store, ctx.options)
-    if (!applyR.success) return jsonErr(applyR, 500)
-    return jsonOk(applyR.data as CaddyConfig)
+  if (method === "POST" && path === "/regenerate") {
+    const regenR = await projectsRegenerate(ctx.store, ctx.options)
+    if (!regenR.success) return jsonErr(regenR, 500)
+    return jsonOk(regenR.data as CaddyConfig)
   }
 
   if (method === "GET" && path === "/history") {

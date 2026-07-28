@@ -118,10 +118,12 @@ caddy-projects edit app --port 3001
 caddy-projects delete app
 caddy-projects config [--pretty]
 caddy-projects history [--name app] [--limit 20]
-caddy-projects apply
+caddy-projects regenerate
 caddy-projects --help
 caddy-projects --version
 ```
+
+`--port` is optional on create: when omitted the daemon assigns the lowest free port in range (default 3000–3999) and returns it in the created project object.
 
 ## API
 
@@ -131,27 +133,35 @@ All routes are JSON over the user's unix socket. The acting user is bound from t
 | --- | --- | --- |
 | `GET` | `/health` | `{ ok: true, user }` |
 | `GET` | `/projects` | visible to user; `?mine=1`, `?templates=1` |
-| `POST` | `/projects` | create; 409 on duplicate name or domain |
+| `POST` | `/projects` | create; `port` optional (auto-assign); 409 on duplicate name, domain, or port |
 | `GET` | `/projects/:name` | 404 if not visible |
-| `PUT` | `/projects/:name` | full replace |
+| `PUT` | `/projects/:name` | full replace (`port` required) |
 | `PATCH` | `/projects/:name` | partial merge |
 | `DELETE` | `/projects/:name` | own projects only |
+| `DELETE` | `/projects/by-port/:port` | delete own project that owns that port |
 | `GET` | `/config` | full generated Caddy JSON; `?pretty=1` |
-| `POST` | `/apply` | force regenerate + validate + reload |
+| `POST` | `/regenerate` | force regenerate + validate + reload |
 | `GET` | `/history` | commits; `?name=`, `?limit=` |
 
-Success responses are `{ success: true, data }`. Errors return a `ResultErr` (`{ success: false, op, errorMessage }`) with status 400 (validation/conflict), 404 (not found) or 500.
+Success responses are `{ success: true, data }`. Errors return a `ResultErr` (`{ success: false, op, errorMessage }`) with status 400 (validation/conflict), 404 (not found) or 500. Port/domain conflicts use 409.
+
+**Port uniqueness.** Ports are unique across all users (one shared machine). Disabled and template projects are ignored for collision checks. On create, omit `port` to get the lowest free port in the configured range (default 3000–3999 via `ProjectsRegenerateOptions.portRange`); the assigned port is in the returned project object (`data.port`).
 
 ```bash
 curl --unix-socket /run/caddy-projects/$USER.sock http://localhost/projects
+# create without port → auto-assign
+curl --unix-socket /run/caddy-projects/$USER.sock -X POST http://localhost/projects \
+  -d '{"name":"auto","domains":["auto.test"],"kind":"proxy","access":"external","docs":false}'
+# delete by port
+curl --unix-socket /run/caddy-projects/$USER.sock -X DELETE http://localhost/projects/by-port/3000
 ```
 
 ## Project JSON
 
 | field | type | notes |
 | --- | --- | --- |
-| `port` | number 1..65535 | upstream port; primary key per user |
-| `domains` | string[] | >=1 hostnames |
+| `port` | number 1..65535 | upstream port; required when stored; **optional on create** (auto-assigned); unique across all users |
+| `domains` | string[] | >=1 hostnames; unique across all users (active projects) |
 | `name` | slug | `^[a-z0-9][a-z0-9-]*$` |
 | `path` | string | absolute path; `""` allowed |
 | `user` | string | linux username (set by server) |
@@ -170,9 +180,17 @@ Visibility: own projects, or any with `shared` / `template`. Mutations only on o
 
 ## Caddy config
 
-`caddyConfigGenerate` builds Caddy JSON (apps.http + optional apps.oidc). Mutating API routes write git then generate → validate → reload; on apply failure the git change is reverted.
+`caddyConfigGenerate` builds Caddy JSON (apps.http + optional apps.oidc). Mutating API routes write git then generate → validate → reload; on regenerate failure the git change is reverted. `POST /regenerate` forces the same pipeline without a project mutation.
 
-**Note:** `access: "internal"` requires the [caddy-oidc](https://github.com/) plugin compiled into your caddy binary. Validation of configs that include the `oidc` handler will fail on stock caddy.
+**Note:** `access: "internal"` requires the [caddy-oidc](https://github.com/relvacode/caddy-oidc) plugin compiled into your caddy binary. Validation of configs that include the `oidc` handler will fail on stock caddy.
+
+## OIDC setup
+
+Custom Caddy build + Zitadel client provisioning scripts live under [`ops/`](ops/README.md):
+
+- `ops/caddy_oidc_install.sh` — build/install Caddy with `caddy-oidc` via xcaddy
+- `ops/provision_leo_server_oidc.sh` / `provision_localhost_oidc.sh` / `provision_david_server_oidc.sh` — idempotent Zitadel OIDC clients
+- See [ops/README.md](ops/README.md) for env vars (`CADDY_PROJECTS_OIDC_*`) and how to wire the daemon
 
 ## Dev
 

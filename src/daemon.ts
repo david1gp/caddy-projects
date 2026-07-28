@@ -5,7 +5,7 @@ import { join } from "node:path"
 import { type ApiContext, apiHandle } from "./apiHandle.js"
 import type { CaddyConfigOptions, OidcOptions } from "./caddyConfigOptionsSchema.js"
 import { projectStoreOpen } from "./projectStoreOpen.js"
-import type { ProjectsApplyOptions } from "./projectsApply.js"
+import type { ProjectsRegenerateOptions } from "./projectsRegenerate.js"
 import { systemUserUid } from "./systemUserUid.js"
 
 function flagValue(argv: string[], name: string): string | undefined {
@@ -86,7 +86,7 @@ async function main() {
   const oidc = oidcFromEnv()
   if (oidc) caddy.oidc = oidc
 
-  const applyOptions: ProjectsApplyOptions = {
+  const applyOptions: ProjectsRegenerateOptions = {
     caddy,
     caddyBin,
     adminUrl,

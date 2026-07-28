@@ -33,7 +33,7 @@ export type Project = {
 }
 
 export const projectInputSchema = a.object({
-  port: a.pipe(a.number(), a.integer(), a.minValue(1), a.maxValue(65535)),
+  port: a.optional(a.pipe(a.number(), a.integer(), a.minValue(1), a.maxValue(65535))),
   domains: a.pipe(a.array(a.pipe(a.string(), a.minLength(1))), a.minLength(1)),
   name: a.pipe(a.string(), a.regex(/^[a-z0-9][a-z0-9-]*$/)),
   path: a.optional(a.string(), ""),
@@ -48,7 +48,7 @@ export const projectInputSchema = a.object({
 })
 
 export type ProjectInput = {
-  port: number
+  port?: number
   domains: string[]
   name: string
   path: string
