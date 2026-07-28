@@ -31,6 +31,12 @@ function oidcFromEnv(): OidcOptions | undefined {
   const clientId = Bun.env.CADDY_PROJECTS_OIDC_CLIENT_ID ?? ""
   const clientSecret = Bun.env.CADDY_PROJECTS_OIDC_CLIENT_SECRET ?? ""
   const cookieSecret = Bun.env.CADDY_PROJECTS_OIDC_COOKIE_SECRET ?? ""
+  if (cookieSecret.length !== 32 && cookieSecret.length !== 64) {
+    console.error(
+      `CADDY_PROJECTS_OIDC_COOKIE_SECRET must be exactly 32 or 64 bytes (got ${cookieSecret.length}); generate one with: openssl rand -hex 16`,
+    )
+    process.exit(1)
+  }
   const providerName = Bun.env.CADDY_PROJECTS_OIDC_PROVIDER ?? "zitadel"
   return {
     providerName,

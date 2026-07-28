@@ -95,7 +95,7 @@ export const oidcTestOptions = {
   issuer: "https://auth.contentoren.de",
   clientId: "test-client",
   clientSecret: "test-secret",
-  cookieSecret: "cookie-secret-for-tests",
+  cookieSecret: "0123456789abcdef0123456789abcdef",
   scope: ["openid", "email", "profile"],
   username: "email",
   cookieName: "caddy",

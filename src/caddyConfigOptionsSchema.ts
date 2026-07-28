@@ -8,7 +8,10 @@ export const oidcOptionsSchema = a.object({
   scope: a.optional(a.array(a.string()), ["openid", "email", "profile"]),
   username: a.optional(a.string(), "email"),
   cookieName: a.optional(a.string(), "caddy"),
-  cookieSecret: a.pipe(a.string(), a.minLength(1)),
+  cookieSecret: a.pipe(
+    a.string(),
+    a.check((s) => s.length === 32 || s.length === 64, "cookieSecret must be exactly 32 or 64 bytes long"),
+  ),
   cookieMaxAge: a.optional(a.string(), "168h"),
   redirectUrl: a.optional(a.string(), "/oauth2/callback"),
 })
