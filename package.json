@@ -15,8 +15,9 @@
     "dev:cli": "bun run src/cli.ts"
   },
   "dependencies": {
-    "@adaptive-ds/result": "link:@adaptive-ds/result",
     "@adaptive-ds/git-store": "link:@adaptive-ds/git-store",
+    "@adaptive-ds/result": "link:@adaptive-ds/result",
+    "@stricli/core": "^1.2.5",
     "valibot": "^1.2.0"
   },
   "devDependencies": {

@@ -1,9 +1,5 @@
 #!/usr/bin/env bun
-import { cliMain } from "./cliMain.js"
+import { run } from "@stricli/core"
+import { caddyProjectsApplication } from "./cli/caddyProjectsApplication.js"
 
-const r = await cliMain(process.argv.slice(2))
-if (!r.success) {
-  console.error(`${r.op}: ${r.errorMessage}`)
-  process.exit(1)
-}
-console.log(r.data)
+await run(caddyProjectsApplication, process.argv.slice(2), { process })

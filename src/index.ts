@@ -6,7 +6,6 @@ export type { CaddyConfigOptions, OidcOptions } from "./caddyConfigOptionsSchema
 export { caddyConfigOptionsSchema, oidcOptionsSchema } from "./caddyConfigOptionsSchema.js"
 export { caddyConfigValidate } from "./caddyConfigValidate.js"
 export { caddyDocsTemplate } from "./caddyDocsTemplate.js"
-export { cliMain } from "./cliMain.js"
 export type { ProjectStore } from "./ProjectStore.js"
 export { projectMutableBy } from "./projectMutableBy.js"
 export { projectPortCollision } from "./projectPortCollision.js"

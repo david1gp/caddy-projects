@@ -106,24 +106,31 @@ WantedBy=multi-user.target
 
 ## CLI
 
-Talks to the daemon over the current user's socket (`--socket` or `CADDY_PROJECTS_SOCKET`).
+Talks to the daemon over the current user's socket (`--socket` or `CADDY_PROJECTS_SOCKET`). Built with `@stricli/core` — every command and flag has help text via `caddy-projects <command> --help`.
 
 ```bash
 caddy-projects list [--mine] [--templates] [--json]
 caddy-projects get <name> [--json]
-caddy-projects create --name app --port 3000 --domain app.example.com \
+caddy-projects create --name app --domain app.example.com [--port 3000] \
   [--path /srv/app] [--kind proxy|static] [--access internal|external] \
-  [--no-docs] [--browse] [--shared] [--template] [--header-up Host=127.0.0.1:3000]
-caddy-projects edit app --port 3001
-caddy-projects delete app
+  [--docs|--no-docs] [--browse|--no-browse] [--shared|--no-shared] \
+  [--template|--no-template] [--disabled|--enabled] \
+  [--header-up Host=127.0.0.1:3000]
+caddy-projects edit app [--port 3001] [same flags as create]
+caddy-projects delete <name>
+caddy-projects delete --port 3000
 caddy-projects config [--pretty]
 caddy-projects history [--name app] [--limit 20]
 caddy-projects regenerate
 caddy-projects --help
+caddy-projects create --help
 caddy-projects --version
 ```
 
-`--port` is optional on create: when omitted the daemon assigns the lowest free port in range (default 3000–3999) and returns it in the created project object.
+- `--port` is optional on create: when omitted the daemon assigns the lowest free port in range (default 3000–3999) and the CLI prints `created <name> (port N)`.
+- Boolean project fields have both enable and disable flags (`--docs` / `--no-docs`, etc.). Only flags you pass are sent on `edit` (true partial PATCH).
+- `delete` accepts either a positional name or `--port <n>` (not both).
+- Request bodies are validated client-side before the API call (e.g. bad `--port abc` fails with a clear error).
 
 ## API
 
