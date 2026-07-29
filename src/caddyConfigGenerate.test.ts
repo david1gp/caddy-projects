@@ -146,12 +146,17 @@ describe("caddyConfigGenerate", () => {
     expect(r.errorMessage).toContain("static project requires path")
   })
 
-  test("rejects docs without path", () => {
-    const bad: Project = { ...projectStartup, path: "" }
-    const r = caddyConfigGenerate([bad], {})
-    expect(r.success).toBe(false)
-    if (r.success) return
-    expect(r.errorMessage).toContain("docs requires path")
+  // docs defaults to true, so a project without a path must still generate: docs routes are simply skipped.
+  test("docs without path skips the docs routes instead of failing", () => {
+    const noPath: Project = { ...projectStartup, path: "" }
+    const r = caddyConfigGenerate([noPath], {})
+    expect(r.success).toBe(true)
+    if (!r.success) return
+    const routes = r.data.apps.http.servers.srv0.routes as Array<{
+      handle: Array<{ routes: Array<{ group?: string }> }>
+    }>
+    const inner = routes[0]!.handle[0]!.routes
+    expect(inner.some((x) => x.group === "docs")).toBe(false)
   })
 
   test("internal without oidc options omits oidc handler", () => {

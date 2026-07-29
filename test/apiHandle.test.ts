@@ -352,9 +352,7 @@ describe("apiHandle", () => {
       autoPush: false,
     })
     if (!openR.success) throw new Error(openR.errorMessage)
-    // create a project that will fail generate: docs true with empty path
-    // but schema allows it — generate rejects. Use skipValidate false so caddy validate runs;
-    // actually generate fails first for docs without path.
+    // Point at a caddy binary that cannot be spawned so the validate step fails and the write is reverted.
     const ctx: ApiContext = {
       user: "alice",
       store: openR.data,
@@ -362,7 +360,7 @@ describe("apiHandle", () => {
         caddy: {},
         skipValidate: false,
         skipReload: true,
-        caddyBin,
+        caddyBin: "/nonexistent/caddy",
       },
     }
     const res = await apiHandle(

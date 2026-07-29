@@ -152,9 +152,6 @@ export function caddyConfigGenerate(projects: Project[], options: CaddyConfigOpt
     if (p.kind === "static" && p.path === "") {
       return createResultError(op, `static project requires path: ${p.name}`)
     }
-    if (p.docs === true && p.path === "") {
-      return createResultError(op, `docs requires path: ${p.name}`)
-    }
     for (const d of p.domains) {
       const existing = domainOwner.get(d)
       if (existing) {
