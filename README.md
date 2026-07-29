@@ -95,6 +95,8 @@ Type=simple
 User=root
 ExecStart=/usr/local/bin/caddy-projectsd --repo /var/lib/caddy-projects --socket-dir /run/caddy-projects --users leo,david
 Restart=on-failure
+RuntimeDirectory=caddy-projects
+RuntimeDirectoryMode=0755
 Environment=CADDY_PROJECTS_OIDC_ISSUER=https://auth.example
 Environment=CADDY_PROJECTS_OIDC_CLIENT_ID=...
 Environment=CADDY_PROJECTS_OIDC_CLIENT_SECRET=...
@@ -106,7 +108,7 @@ WantedBy=multi-user.target
 
 ## CLI
 
-Talks to the daemon over the current user's socket (`--socket` or `CADDY_PROJECTS_SOCKET`). Built with `@stricli/core` — every command and flag has help text via `caddy-projects <command> --help`.
+Talks to the daemon over the current user's socket. Resolution order: `--socket`, then `CADDY_PROJECTS_SOCKET`, then `/run/caddy-projects/$USER.sock`. Built with `@stricli/core` — every command and flag has help text via `caddy-projects <command> --help`.
 
 ```bash
 caddy-projects list [--mine] [--templates] [--json]

@@ -101,6 +101,11 @@ async function main() {
   }
 
   mkdirSync(socketDir, { recursive: true })
+  try {
+    chmodSync(socketDir, 0o755)
+  } catch {
+    // ignore
+  }
 
   const servers: ReturnType<typeof Bun.serve>[] = []
   for (const user of users) {
