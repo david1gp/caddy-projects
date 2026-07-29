@@ -1,6 +1,8 @@
 import * as a from "valibot"
 import { createResultError, type ResultErr } from "#result"
 import type { CaddyConfig } from "./CaddyConfig.js"
+import { caddyConfigSelect } from "./caddyConfigSelect.js"
+import { caddyConfigSummary } from "./caddyConfigSummary.js"
 import type { ProjectStore } from "./ProjectStore.js"
 import { projectMutableBy } from "./projectMutableBy.js"
 import { projectPortCollision } from "./projectPortCollision.js"
@@ -251,13 +253,62 @@ export async function apiHandle(request: Request, ctx: ApiContext): Promise<Resp
   }
 
   if (method === "GET" && path === "/config") {
+    const summary = url.searchParams.get("summary") === "1"
+    const select = url.searchParams.get("select")
+    const pretty = url.searchParams.get("pretty") === "1"
+
+    if (summary) {
+      const listR = await projectStoreListAll(ctx.store)
+      if (!listR.success) return jsonErr(listR, 500)
+      const visible = listR.data.filter((p) => projectVisibleTo(p, ctx.user))
+      return jsonOk(caddyConfigSummary(visible))
+    }
+
     const regenR = await projectsRegenerate(ctx.store, {
       ...ctx.options,
       skipReload: true,
       skipValidate: true,
     })
     if (!regenR.success) return jsonErr(regenR, 500)
-    const pretty = url.searchParams.get("pretty") === "1"
+
+    if (select !== null && select !== "") {
+      const listR = await projectStoreListAll(ctx.store)
+      if (!listR.success) return jsonErr(listR, 500)
+      const visible = listR.data.filter((p) => projectVisibleTo(p, ctx.user))
+      const visibleDomains = new Set(
+        visible.filter((p) => !p.disabled && !p.template).flatMap((p) => p.domains.map((d) => d.toLowerCase())),
+      )
+      const full = regenR.data as CaddyConfig
+      const scoped: CaddyConfig = {
+        ...full,
+        apps: {
+          ...full.apps,
+          http: {
+            ...full.apps.http,
+            servers: {
+              srv0: {
+                ...full.apps.http.servers.srv0,
+                routes: full.apps.http.servers.srv0.routes.filter((route) => {
+                  const match = (route as { match?: Array<{ host?: string[] }> }).match
+                  const hosts = match?.[0]?.host ?? []
+                  return hosts.some((h) => visibleDomains.has(h.toLowerCase()))
+                }),
+              },
+            },
+          },
+        },
+      }
+      const selR = caddyConfigSelect(scoped, visible, select)
+      if (!selR.success) return jsonErr(selR, 404)
+      if (pretty) {
+        return new Response(JSON.stringify(selR.data, null, 2), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        })
+      }
+      return jsonOk(selR.data)
+    }
+
     if (pretty) {
       return new Response(JSON.stringify(regenR.data, null, 2), {
         status: 200,

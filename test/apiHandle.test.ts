@@ -195,6 +195,73 @@ describe("apiHandle", () => {
     expect(j.data.apps.http.servers.srv0.routes.length).toBe(1)
   })
 
+  test("config ?select= by name, port, domain; unknown 404", async () => {
+    const ctx = await ctxFor("alice")
+    await apiHandle(
+      req("POST", "/projects", {
+        name: "web",
+        port: 4000,
+        domains: ["web.test", "www.web.test"],
+        docs: false,
+      }),
+      ctx,
+    )
+    await apiHandle(req("POST", "/projects", { name: "api", port: 3500, domains: ["api.test"], docs: false }), ctx)
+
+    const byName = await json(await apiHandle(req("GET", "/config?select=web"), ctx))
+    expect(byName.success).toBe(true)
+    expect(byName.data.length).toBe(1)
+    expect(byName.data[0].match[0].host).toEqual(["web.test", "www.web.test"])
+
+    const byPort = await json(await apiHandle(req("GET", "/config?select=3500"), ctx))
+    expect(byPort.success).toBe(true)
+    expect(byPort.data.length).toBe(1)
+    expect(byPort.data[0].match[0].host).toEqual(["api.test"])
+
+    const byDomain = await json(await apiHandle(req("GET", "/config?select=api.test"), ctx))
+    expect(byDomain.success).toBe(true)
+    expect(byDomain.data.length).toBe(1)
+    expect(byDomain.data[0].match[0].host).toEqual(["api.test"])
+
+    const unknown = await apiHandle(req("GET", "/config?select=nope"), ctx)
+    expect(unknown.status).toBe(404)
+    const unknownJ = await json(unknown)
+    expect(unknownJ.success).toBe(false)
+    expect(unknownJ.errorMessage).toContain("no server block matching: nope")
+  })
+
+  test("config ?summary=1 shape", async () => {
+    const ctx = await ctxFor("alice")
+    await apiHandle(req("POST", "/projects", { name: "web", port: 4000, domains: ["web.test"], docs: false }), ctx)
+    await apiHandle(req("POST", "/projects", { name: "api", port: 3500, domains: ["api.test"], docs: false }), ctx)
+    const res = await apiHandle(req("GET", "/config?summary=1"), ctx)
+    expect(res.status).toBe(200)
+    const j = await json(res)
+    expect(j.success).toBe(true)
+    expect(j.data.length).toBe(2)
+    expect(j.data[0]).toMatchObject({
+      name: "api",
+      port: 3500,
+      kind: "proxy",
+      access: "external",
+      domains: ["api.test"],
+      user: "alice",
+    })
+    expect(j.data[1].name).toBe("web")
+  })
+
+  test("config select cannot see another user's private project", async () => {
+    const [alice, bob] = await sharedStoreCtx(["alice", "bob"])
+    await apiHandle(
+      req("POST", "/projects", { name: "private", port: 4000, domains: ["private.example"], docs: false }),
+      alice,
+    )
+    const bobSelect = await apiHandle(req("GET", "/config?select=private"), bob)
+    expect(bobSelect.status).toBe(404)
+    const bobDomain = await apiHandle(req("GET", "/config?select=private.example"), bob)
+    expect(bobDomain.status).toBe(404)
+  })
+
   test("history endpoint", async () => {
     const ctx = await ctxFor("alice")
     await apiHandle(req("POST", "/projects", { name: "app", port: 4000, domains: ["app.example"], docs: false }), ctx)
