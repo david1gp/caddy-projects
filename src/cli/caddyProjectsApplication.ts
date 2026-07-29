@@ -1,5 +1,6 @@
 import { buildApplication, buildRouteMap } from "@stricli/core"
 import { configShowCommand } from "./configShowCommand.js"
+import { docsUrlsCommand } from "./docsUrlsCommand.js"
 import { historyShowCommand } from "./historyShowCommand.js"
 import { projectCreateCommand } from "./projectCreateCommand.js"
 import { projectDeleteCommand } from "./projectDeleteCommand.js"
@@ -15,6 +16,7 @@ const routes = buildRouteMap({
     create: projectCreateCommand,
     edit: projectEditCommand,
     delete: projectDeleteCommand,
+    docs: docsUrlsCommand,
     config: configShowCommand,
     history: historyShowCommand,
     regenerate: regenerateCommand,
