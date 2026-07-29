@@ -69,26 +69,16 @@ mkdir -p "$CHANGELOGS_DIR"
 FULL_CHANGELOG="## [${NEW_VERSION}] - ${DATE}
 
 ${CHANGELOG_BODY}"
-echo "$FULL_CHANGELOG" > "$CHANGELOG_FILE"
+echo "$FULL_CHANGELOG" >"$CHANGELOG_FILE"
 echo "📄 Changelog saved to: $CHANGELOG_FILE"
 
-# --- Step 4: Review changelog ---
-echo "📄 Review the generated changelog:"
+# --- Step 4: Changelog ---
+echo "📄 Generated changelog:"
 cat "$CHANGELOG_FILE"
-if [ $# -eq 0 ]; then
-  read -p "✅ Proceed with publishing? (y/N): " CONFIRM
-  if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
-    echo "❌ Aborted by user."
-    exit 1
-  fi
-else
-  echo "⏭️ Skipping manual confirmation because version was provided as an argument."
-fi
-
 
 # --- Step 6: Update package.json ---
 echo "🔄 Updating $PACKAGE_JSON to v$NEW_VERSION..."
-jq --arg v "$NEW_VERSION" '.version = $v' "$PACKAGE_JSON" > tmp.$$.json && mv tmp.$$.json "$PACKAGE_JSON"
+jq --arg v "$NEW_VERSION" '.version = $v' "$PACKAGE_JSON" >tmp.$$.json && mv tmp.$$.json "$PACKAGE_JSON"
 TAG="v$NEW_VERSION"
 
 # --- Step 7: Git Commit and push ---
