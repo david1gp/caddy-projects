@@ -121,6 +121,7 @@ caddy-projects create --name app --domain app.example.com [--port 3000] \
 caddy-projects edit app [--port 3001] [same flags as create]
 caddy-projects delete <name>
 caddy-projects delete --port 3000
+caddy-projects docs <name> <path.md>   # public review URLs (HTML at /docs/*.md)
 caddy-projects config                  # summary table of server blocks
 caddy-projects config all [--pretty]   # full generated Caddy JSON
 caddy-projects config <selector>       # one block by project name, domain, or port
@@ -135,6 +136,7 @@ caddy-projects --version
 - `--port` is optional on create: when omitted the daemon assigns the lowest free port in range (default 3000–3999) and the CLI prints `created <name> (port N)`.
 - Boolean project fields have both enable and disable flags (`--docs` / `--no-docs`, etc.). Only flags you pass are sent on `edit` (true partial PATCH).
 - `delete` accepts either a positional name or `--port <n>` (not both).
+- `docs <name> guide/intro.md` prints one `https://…/docs/…` URL per project domain (use `--json` for `{ "urls": [...] }`, `--http` for http scheme).
 - `config` with no arg prints a summary table of blocks actually in the generated config; `config all` dumps full JSON; `config <selector>` prints matching route(s) (pretty by default). Selector is project name, domain, or port.
 - Request bodies are validated client-side before the API call (e.g. bad `--port abc` fails with a clear error).
 
@@ -152,6 +154,7 @@ All routes are JSON over the user's unix socket. The acting user is bound from t
 | `PATCH` | `/projects/:name` | partial merge |
 | `DELETE` | `/projects/:name` | own projects only |
 | `DELETE` | `/projects/by-port/:port` | delete own project that owns that port |
+| `GET` | `/projects/:name/docs` | public docs review URLs; required `?path=guide/intro.md`; optional `?scheme=http`; `{ urls: string[] }`; 400 if docs off / bad path |
 | `GET` | `/config` | full generated Caddy JSON; `?pretty=1`; `?summary=1` summary rows; `?select=<name\|domain\|port>` matching route(s) (404 if none); visibility-scoped |
 | `POST` | `/regenerate` | force regenerate + validate + reload |
 | `GET` | `/history` | commits; `?name=`, `?limit=` |
