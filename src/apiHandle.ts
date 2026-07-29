@@ -4,6 +4,7 @@ import type { CaddyConfig } from "./CaddyConfig.js"
 import { caddyConfigSelect } from "./caddyConfigSelect.js"
 import { caddyConfigSummary } from "./caddyConfigSummary.js"
 import type { ProjectStore } from "./ProjectStore.js"
+import { projectDocsUrls } from "./projectDocsUrls.js"
 import { projectMutableBy } from "./projectMutableBy.js"
 import { projectPortCollision } from "./projectPortCollision.js"
 import { projectPortNext } from "./projectPortNext.js"
@@ -122,6 +123,21 @@ export async function apiHandle(request: Request, ctx: ApiContext): Promise<Resp
       return jsonErr(createResultError("apiHandle.deleteByPort", `no project with port ${port}`), 404)
     }
     return projectDelete(ctx, found)
+  }
+
+  const docsMatch = path.match(/^\/projects\/([^/]+)\/docs$/)
+  if (docsMatch && method === "GET") {
+    const name = decodeURIComponent(docsMatch[1]!)
+    const listR = await projectStoreListAll(ctx.store)
+    if (!listR.success) return jsonErr(listR, 500)
+    const found = listR.data.find((p) => p.name === name && projectVisibleTo(p, ctx.user))
+    if (!found) return jsonErr(createResultError("apiHandle.docs", `not found: ${name}`), 404)
+    const rel = url.searchParams.get("path") ?? ""
+    const schemeParam = url.searchParams.get("scheme")
+    const scheme = schemeParam === "http" ? "http" : "https"
+    const urlsR = projectDocsUrls(found, rel, { scheme })
+    if (!urlsR.success) return jsonErr(urlsR, 400)
+    return jsonOk(urlsR.data)
   }
 
   const projectMatch = path.match(/^\/projects\/([^/]+)$/)

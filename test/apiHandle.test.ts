@@ -271,6 +271,54 @@ describe("apiHandle", () => {
     expect(j.data.length).toBeGreaterThanOrEqual(1)
   })
 
+  test("docs urls for markdown path", async () => {
+    const ctx = await ctxFor("alice")
+    await apiHandle(
+      req("POST", "/projects", {
+        name: "docsapp",
+        port: 4100,
+        domains: ["docs.example", "docs2.example"],
+        path: "/srv/docsapp",
+        docs: true,
+      }),
+      ctx,
+    )
+    const res = await apiHandle(req("GET", "/projects/docsapp/docs?path=guide/intro.md"), ctx)
+    expect(res.status).toBe(200)
+    const j = await json(res)
+    expect(j.success).toBe(true)
+    expect(j.data.urls).toEqual([
+      "https://docs.example/docs/guide/intro.md",
+      "https://docs2.example/docs/guide/intro.md",
+    ])
+  })
+
+  test("docs urls rejects when docs disabled", async () => {
+    const ctx = await ctxFor("alice")
+    await apiHandle(
+      req("POST", "/projects", { name: "nodocs", port: 4101, domains: ["nodocs.example"], docs: false }),
+      ctx,
+    )
+    const res = await apiHandle(req("GET", "/projects/nodocs/docs?path=x.md"), ctx)
+    expect(res.status).toBe(400)
+  })
+
+  test("docs urls 404 when project not visible", async () => {
+    const [alice, bob] = await sharedStoreCtx(["alice", "bob"])
+    await apiHandle(
+      req("POST", "/projects", {
+        name: "private",
+        port: 4102,
+        domains: ["private-docs.example"],
+        path: "/srv/p",
+        docs: true,
+      }),
+      alice,
+    )
+    const res = await apiHandle(req("GET", "/projects/private/docs?path=x.md"), bob)
+    expect(res.status).toBe(404)
+  })
+
   test("port conflict 409 on create and edit", async () => {
     const [alice, bob] = await sharedStoreCtx(["alice", "bob"])
     const createAlice = await apiHandle(
