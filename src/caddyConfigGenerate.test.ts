@@ -82,7 +82,7 @@ describe("caddyConfigGenerate", () => {
     const inner = innerHandles(routesOf(config)[0]!) as Array<Record<string, unknown>>
     const oidcHandle = (inner[1]!.handle as Array<Record<string, unknown>>)[0]!
     expect(oidcHandle.handler).toBe("oidc")
-    expect(oidcHandle.inherits).toBe("zitadel")
+    expect(oidcHandle.provider).toBe("zitadel")
     const proxy = (inner[inner.length - 1]!.handle as Array<Record<string, unknown>>)[0]!
     expect(proxy.handler).toBe("reverse_proxy")
     expect(proxy.upstreams).toEqual([{ dial: "localhost:9119" }])

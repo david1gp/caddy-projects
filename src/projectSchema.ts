@@ -1,5 +1,20 @@
 import * as a from "valibot"
 
+const optionalExtras = {
+  /** Override Routed response header (default: port or "static") */
+  routed: a.optional(a.string()),
+  /** Path-scoped OIDC (only these paths gated); empty/undefined + access=internal => full host */
+  oidcPaths: a.optional(a.array(a.pipe(a.string(), a.minLength(1)))),
+  /** Override docs root (default: `${path}/docs`) */
+  docsPath: a.optional(a.string()),
+  /** file_server browse template path (Caddy browse { template }) */
+  browseTemplate: a.optional(a.string()),
+  /** If set, only these path matchers are allowed for static (wiki-style allowlist) */
+  staticAllow: a.optional(a.array(a.pipe(a.string(), a.minLength(1)))),
+  /** Block paths matching ^/\..* before file_server */
+  denyDotfiles: a.optional(a.boolean(), false),
+}
+
 export const projectSchema = a.object({
   port: a.pipe(a.number(), a.integer(), a.minValue(1), a.maxValue(65535)),
   domains: a.pipe(a.array(a.pipe(a.string(), a.minLength(1))), a.minLength(1)),
@@ -14,6 +29,7 @@ export const projectSchema = a.object({
   shared: a.optional(a.boolean(), false),
   template: a.optional(a.boolean(), false),
   disabled: a.optional(a.boolean(), false),
+  ...optionalExtras,
 })
 
 export type Project = {
@@ -30,6 +46,12 @@ export type Project = {
   shared: boolean
   template: boolean
   disabled: boolean
+  routed?: string
+  oidcPaths?: string[]
+  docsPath?: string
+  browseTemplate?: string
+  staticAllow?: string[]
+  denyDotfiles?: boolean
 }
 
 export const projectInputSchema = a.object({
@@ -45,6 +67,7 @@ export const projectInputSchema = a.object({
   shared: a.optional(a.boolean(), false),
   template: a.optional(a.boolean(), false),
   disabled: a.optional(a.boolean(), false),
+  ...optionalExtras,
 })
 
 export type ProjectInput = {
@@ -60,4 +83,10 @@ export type ProjectInput = {
   shared: boolean
   template: boolean
   disabled: boolean
+  routed?: string
+  oidcPaths?: string[]
+  docsPath?: string
+  browseTemplate?: string
+  staticAllow?: string[]
+  denyDotfiles?: boolean
 }

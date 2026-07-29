@@ -19,46 +19,26 @@ function oidcNormalized(oidc: OidcOptions): Required<OidcOptions> {
   }
 }
 
-function projectRouteBuild(project: Project, options: CaddyConfigOptions): unknown {
-  const inner: unknown[] = []
-
-  inner.push({
-    handle: [
+function oidcHandler(providerName: string): unknown {
+  return {
+    handler: "oidc",
+    provider: providerName,
+    policies: [
       {
-        handler: "headers",
-        response: {
-          set: {
-            Routed: [String(project.kind === "static" ? "static" : project.port)],
+        action: "allow",
+        match: {
+          user: {
+            usernames: ["*"],
           },
         },
       },
     ],
-  })
-
-  if (project.access === "internal" && options.oidc) {
-    inner.push({
-      handle: [
-        {
-          handler: "oidc",
-          inherits: options.oidc.providerName,
-          policies: [
-            {
-              action: "allow",
-              match: {
-                user: {
-                  usernames: ["*"],
-                },
-              },
-            },
-          ],
-        },
-      ],
-    })
   }
+}
 
-  if (project.docs === true && project.path !== "") {
-    const docsRoot = `${project.path}/docs`
-    inner.push({
+function docsRoutes(docsRoot: string): unknown[] {
+  return [
+    {
       group: "docs",
       match: [
         {
@@ -94,8 +74,8 @@ function projectRouteBuild(project: Project, options: CaddyConfigOptions): unkno
           ],
         },
       ],
-    })
-    inner.push({
+    },
+    {
       group: "docs",
       match: [{ path: ["/docs", "/docs/*"] }],
       handle: [
@@ -108,31 +88,138 @@ function projectRouteBuild(project: Project, options: CaddyConfigOptions): unkno
           ],
         },
       ],
+    },
+  ]
+}
+
+function proxyHandler(project: Project): Record<string, unknown> {
+  const proxy: Record<string, unknown> = {
+    handler: "reverse_proxy",
+    upstreams: [{ dial: `localhost:${project.port}` }],
+  }
+  const headerEntries = Object.entries(project.headerUp)
+  if (headerEntries.length > 0) {
+    const set: Record<string, string[]> = {}
+    for (const [k, v] of headerEntries) {
+      set[k] = [v]
+    }
+    proxy.headers = { request: { set } }
+  }
+  return proxy
+}
+
+function staticHandles(project: Project): unknown[] {
+  const handles: unknown[] = [{ handler: "vars", root: project.path }]
+  const fileServer: Record<string, unknown> = { handler: "file_server" }
+  if (project.browse) {
+    if (project.browseTemplate) {
+      fileServer.browse = { template_file: project.browseTemplate }
+    } else {
+      fileServer.browse = {}
+    }
+  }
+  handles.push(fileServer)
+  return handles
+}
+
+function projectRouteBuild(project: Project, options: CaddyConfigOptions): unknown {
+  const inner: unknown[] = []
+
+  const routedValue = project.routed ?? (project.kind === "static" ? "static" : String(project.port))
+
+  inner.push({
+    handle: [
+      {
+        handler: "headers",
+        response: {
+          set: {
+            Routed: [routedValue],
+          },
+        },
+      },
+    ],
+  })
+
+  const pathOidc = project.oidcPaths !== undefined && project.oidcPaths.length > 0 && options.oidc
+  const fullOidc = !pathOidc && project.access === "internal" && options.oidc
+
+  if (fullOidc && options.oidc) {
+    inner.push({
+      handle: [oidcHandler(options.oidc.providerName)],
     })
   }
 
-  if (project.kind === "proxy") {
-    const proxy: Record<string, unknown> = {
-      handler: "reverse_proxy",
-      upstreams: [{ dial: `localhost:${project.port}` }],
+  const docsRoot =
+    project.docs === true
+      ? project.docsPath && project.docsPath !== ""
+        ? project.docsPath
+        : project.path !== ""
+          ? `${project.path}/docs`
+          : ""
+      : ""
+  if (docsRoot !== "") {
+    inner.push(...docsRoutes(docsRoot))
+  }
+
+  if (project.denyDotfiles === true) {
+    inner.push({
+      match: [{ path_regexp: { pattern: "^/\\..*" } }],
+      handle: [{ handler: "static_response", body: "Not found", status_code: 404 }],
+    })
+  }
+
+  if (project.staticAllow && project.staticAllow.length > 0 && project.kind === "static") {
+    // Paths not in allowlist → 403 (wiki-style). Matchers under `not` are OR'd.
+    const allowMatchers = project.staticAllow.map((p) => ({ path: [p] }))
+    inner.push({
+      match: [{ not: allowMatchers }],
+      handle: [
+        {
+          handler: "static_response",
+          body: "Only markdown and YAML files are accessible",
+          status_code: 403,
+        },
+      ],
+    })
+  }
+
+  if (pathOidc && options.oidc) {
+    // Path-scoped OIDC: gated paths get oidc + terminal handler; rest continue
+    if (project.kind === "proxy") {
+      inner.push({
+        match: [{ path: [...project.oidcPaths!] }],
+        handle: [
+          {
+            handler: "subroute",
+            routes: [
+              {
+                handle: [oidcHandler(options.oidc.providerName), proxyHandler(project)],
+              },
+            ],
+          },
+        ],
+      })
+      inner.push({ handle: [proxyHandler(project)] })
+    } else {
+      inner.push({
+        match: [{ path: [...project.oidcPaths!] }],
+        handle: [
+          {
+            handler: "subroute",
+            routes: [
+              {
+                handle: [oidcHandler(options.oidc.providerName), ...staticHandles(project)],
+              },
+            ],
+          },
+        ],
+      })
+      inner.push({ handle: staticHandles(project) })
     }
-    const headerEntries = Object.entries(project.headerUp)
-    if (headerEntries.length > 0) {
-      const set: Record<string, string[]> = {}
-      for (const [k, v] of headerEntries) {
-        set[k] = [v]
-      }
-      proxy.headers = { request: { set } }
-    }
-    inner.push({ handle: [proxy] })
+  } else if (project.kind === "proxy") {
+    inner.push({ handle: [proxyHandler(project)] })
   } else {
-    const handles: unknown[] = [{ handler: "vars", root: project.path }]
-    const fileServer: Record<string, unknown> = { handler: "file_server" }
-    if (project.browse) {
-      fileServer.browse = {}
-    }
-    handles.push(fileServer)
-    inner.push({ handle: handles })
+    inner.push({ handle: staticHandles(project) })
   }
 
   return {
