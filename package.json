@@ -1,6 +1,6 @@
 {
   "name": "@adaptive-ds/caddy-projects",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "scripts": {
     "build": "rm -rf ./dist && bun tsc -p ./tsconfig.lib.json",
     "test": "bun test",
@@ -15,8 +15,8 @@
     "dev:cli": "bun run src/cli.ts"
   },
   "dependencies": {
-    "@adaptive-ds/git-store": "link:@adaptive-ds/git-store",
-    "@adaptive-ds/result": "link:@adaptive-ds/result",
+    "@adaptive-ds/git-store": "^0.1.0",
+    "@adaptive-ds/result": "^0.6.0",
     "@stricli/core": "^1.2.5",
     "valibot": "^1.2.0"
   },
