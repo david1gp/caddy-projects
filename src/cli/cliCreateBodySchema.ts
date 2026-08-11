@@ -12,6 +12,7 @@ export const cliCreateBodySchema = a.object({
   shared: a.optional(a.boolean()),
   template: a.optional(a.boolean()),
   disabled: a.optional(a.boolean()),
+  spa: a.optional(a.boolean()),
   headerUp: a.optional(a.record(a.string(), a.string())),
 })
 

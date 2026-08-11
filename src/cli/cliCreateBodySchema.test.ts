@@ -40,6 +40,18 @@ describe("cliCreateBodySchema", () => {
     const r = a.safeParse(cliCreateBodySchema, { name: "web" })
     expect(r.success).toBe(false)
   })
+
+  test("accepts spa", () => {
+    const r = a.safeParse(cliCreateBodySchema, {
+      name: "web",
+      domains: ["web.test"],
+      kind: "static",
+      spa: true,
+    })
+    expect(r.success).toBe(true)
+    if (!r.success) return
+    expect(r.output.spa).toBe(true)
+  })
 })
 
 describe("cliEditBodySchema", () => {
@@ -61,5 +73,12 @@ describe("cliEditBodySchema", () => {
   test("bad access", () => {
     const r = a.safeParse(cliEditBodySchema, { access: "x" })
     expect(r.success).toBe(false)
+  })
+
+  test("accepts spa patch", () => {
+    const r = a.safeParse(cliEditBodySchema, { spa: true })
+    expect(r.success).toBe(true)
+    if (!r.success) return
+    expect(r.output.spa).toBe(true)
   })
 })

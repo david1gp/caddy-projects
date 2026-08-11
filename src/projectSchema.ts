@@ -13,6 +13,8 @@ const optionalExtras = {
   staticAllow: a.optional(a.array(a.pipe(a.string(), a.minLength(1)))),
   /** Block paths matching ^/\..* before file_server */
   denyDotfiles: a.optional(a.boolean(), false),
+  /** Static SPA: try_files {path} /index.html before file_server */
+  spa: a.optional(a.boolean(), false),
 }
 
 export const projectSchema = a.object({
@@ -52,6 +54,7 @@ export type Project = {
   browseTemplate?: string
   staticAllow?: string[]
   denyDotfiles?: boolean
+  spa?: boolean
 }
 
 export const projectInputSchema = a.object({
@@ -89,4 +92,5 @@ export type ProjectInput = {
   browseTemplate?: string
   staticAllow?: string[]
   denyDotfiles?: boolean
+  spa?: boolean
 }

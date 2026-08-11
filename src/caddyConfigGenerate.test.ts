@@ -103,11 +103,39 @@ describe("caddyConfigGenerate", () => {
     const inner = innerHandles(routesOf(r.data)[0]!) as Array<Record<string, unknown>>
     const headers = (inner[0]!.handle as Array<Record<string, unknown>>)[0]!
     expect((headers.response as { set: { Routed: string[] } }).set.Routed).toEqual(["static"])
-    const terminal = inner[inner.length - 1]!.handle as Array<Record<string, unknown>>
-    expect(terminal[0]!.handler).toBe("vars")
-    expect(terminal[0]!.root).toBe("/home/leo/projects/demos")
-    expect(terminal[1]!.handler).toBe("file_server")
-    expect(terminal[1]!.browse).toBeUndefined()
+    const terminal = inner[inner.length - 1]! as { handle: Array<Record<string, unknown>>; match?: unknown }
+    expect(terminal.match).toBeUndefined()
+    expect(terminal.handle[0]!.handler).toBe("vars")
+    expect(terminal.handle[0]!.root).toBe("/home/leo/projects/demos")
+    expect(terminal.handle[1]!.handler).toBe("file_server")
+    expect(terminal.handle[1]!.browse).toBeUndefined()
+  })
+
+  test("static spa: try_files {path} /index.html + rewrite + file_server", () => {
+    const spa: Project = { ...projectDemos, name: "spa-app", domains: ["spa.example"], docs: false, spa: true }
+    const r = caddyConfigGenerate([spa], {})
+    expect(r.success).toBe(true)
+    if (!r.success) return
+    const terminal = innerHandles(routesOf(r.data)[0]!).at(-1) as {
+      match: Array<{ file: { try_files: string[] } }>
+      handle: Array<Record<string, unknown>>
+    }
+    expect(terminal.match[0]!.file.root).toBe("/home/leo/projects/demos")
+    expect(terminal.match[0]!.file.try_files).toEqual(["{http.request.uri.path}", "/index.html"])
+    expect(terminal.handle[0]!.handler).toBe("vars")
+    expect(terminal.handle[0]!.root).toBe("/home/leo/projects/demos")
+    expect(terminal.handle[1]!.handler).toBe("rewrite")
+    expect(terminal.handle[1]!.uri).toBe("{http.matchers.file.relative}")
+    expect(terminal.handle[2]!.handler).toBe("file_server")
+  })
+
+  test("static without spa omits try_files and rewrite", () => {
+    const r = caddyConfigGenerate([{ ...projectDemos, spa: false }], {})
+    expect(r.success).toBe(true)
+    if (!r.success) return
+    const all = JSON.stringify(routesOf(r.data)[0])
+    expect(all).not.toContain("try_files")
+    expect(all).not.toContain('"handler":"rewrite"')
   })
 
   test("blue: static + browse + oidc + docs", () => {

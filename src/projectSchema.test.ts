@@ -21,6 +21,22 @@ describe("projectSchema", () => {
     expect(r.output.shared).toBe(false)
     expect(r.output.template).toBe(false)
     expect(r.output.disabled).toBe(false)
+    expect(r.output.spa).toBe(false)
+  })
+
+  test("accepts spa true", () => {
+    const r = a.safeParse(projectSchema, {
+      port: 3000,
+      domains: ["a.example"],
+      name: "foo",
+      user: "david",
+      kind: "static",
+      path: "/srv/app",
+      spa: true,
+    })
+    expect(r.success).toBe(true)
+    if (!r.success) return
+    expect(r.output.spa).toBe(true)
   })
 
   test("rejects bad port", () => {

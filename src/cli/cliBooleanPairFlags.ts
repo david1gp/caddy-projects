@@ -59,6 +59,18 @@ export const cliBooleanPairFlags = {
     withNegated: false as const,
     brief: "Enable project (clear disabled)",
   },
+  spa: {
+    kind: "boolean" as const,
+    optional: true as const,
+    withNegated: false as const,
+    brief: "Static SPA fallback to /index.html",
+  },
+  noSpa: {
+    kind: "boolean" as const,
+    optional: true as const,
+    withNegated: false as const,
+    brief: "Disable static SPA fallback",
+  },
 }
 
 export type CliBooleanPairFlags = {
@@ -72,4 +84,6 @@ export type CliBooleanPairFlags = {
   noTemplate?: boolean
   disabled?: boolean
   enabled?: boolean
+  spa?: boolean
+  noSpa?: boolean
 }

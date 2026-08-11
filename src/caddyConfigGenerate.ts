@@ -110,6 +110,12 @@ function proxyHandler(project: Project): Record<string, unknown> {
 
 function staticHandles(project: Project): unknown[] {
   const handles: unknown[] = [{ handler: "vars", root: project.path }]
+  if (project.spa === true) {
+    handles.push({
+      handler: "rewrite",
+      uri: "{http.matchers.file.relative}",
+    })
+  }
   const fileServer: Record<string, unknown> = { handler: "file_server" }
   if (project.browse) {
     if (project.browseTemplate) {
@@ -120,6 +126,26 @@ function staticHandles(project: Project): unknown[] {
   }
   handles.push(fileServer)
   return handles
+}
+
+/** Route entry for static sites; SPA uses try_files {path} /index.html */
+function staticRoute(project: Project): Record<string, unknown> {
+  const handles = staticHandles(project)
+  if (project.spa === true) {
+    return {
+      match: [
+        {
+          file: {
+            // root required on matcher: file match runs before vars handler
+            root: project.path,
+            try_files: ["{http.request.uri.path}", "/index.html"],
+          },
+        },
+      ],
+      handle: handles,
+    }
+  }
+  return { handle: handles }
 }
 
 function projectRouteBuild(project: Project, options: CaddyConfigOptions): unknown {
@@ -201,6 +227,7 @@ function projectRouteBuild(project: Project, options: CaddyConfigOptions): unkno
       })
       inner.push({ handle: [proxyHandler(project)] })
     } else {
+      const spaStatic = staticRoute(project)
       inner.push({
         match: [{ path: [...project.oidcPaths!] }],
         handle: [
@@ -208,18 +235,19 @@ function projectRouteBuild(project: Project, options: CaddyConfigOptions): unkno
             handler: "subroute",
             routes: [
               {
-                handle: [oidcHandler(options.oidc.providerName), ...staticHandles(project)],
+                handle: [oidcHandler(options.oidc.providerName), ...(spaStatic.handle as unknown[])],
+                ...(spaStatic.match ? { match: spaStatic.match } : {}),
               },
             ],
           },
         ],
       })
-      inner.push({ handle: staticHandles(project) })
+      inner.push(spaStatic)
     }
   } else if (project.kind === "proxy") {
     inner.push({ handle: [proxyHandler(project)] })
   } else {
-    inner.push({ handle: staticHandles(project) })
+    inner.push(staticRoute(project))
   }
 
   return {

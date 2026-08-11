@@ -45,6 +45,10 @@ export function cliBodyFromFlags(flags: CliBodyFlags): Result<Record<string, unk
   if (!disabledR.success) return createResultError(op, "conflicting --disabled and --enabled")
   if (disabledR.data !== undefined) body.disabled = disabledR.data
 
+  const spaR = cliFlagBoolean(flags.spa, flags.noSpa)
+  if (!spaR.success) return createResultError(op, "conflicting --spa and --no-spa")
+  if (spaR.data !== undefined) body.spa = spaR.data
+
   if (flags.headerUp !== undefined && flags.headerUp.length > 0) {
     const hR = cliHeaderUpParse(flags.headerUp)
     if (!hR.success) return hR
