@@ -40,7 +40,7 @@ describe("caddyConfigGenerate", () => {
     expect(hosts).toEqual(sorted)
   })
 
-  test("opencode: multi-domain proxy, no oidc, no docs, Routed=port", () => {
+  test("opencode: multi-domain proxy, no oidc, no docs, Routed=port, flush_interval -1", () => {
     const r = caddyConfigGenerate([projectOpencode], {})
     expect(r.success).toBe(true)
     if (!r.success) return
@@ -54,9 +54,19 @@ describe("caddyConfigGenerate", () => {
     const proxyRoute = inner[inner.length - 1]! as { handle: Array<Record<string, unknown>> }
     expect(proxyRoute.handle[0]!.handler).toBe("reverse_proxy")
     expect(proxyRoute.handle[0]!.upstreams).toEqual([{ dial: "localhost:4096" }])
+    expect(proxyRoute.handle[0]!.flush_interval).toBe(-1)
     const allHandlers = JSON.stringify(inner)
     expect(allHandlers).not.toContain('"handler":"oidc"')
     expect(allHandlers).not.toContain("project_docs")
+  })
+
+  test("proxy without flushInterval omits flush_interval", () => {
+    const r = caddyConfigGenerate([projectHermes], {})
+    expect(r.success).toBe(true)
+    if (!r.success) return
+    const proxy = (innerHandles(routesOf(r.data)[0]!).at(-1) as { handle: Array<Record<string, unknown>> }).handle[0]!
+    expect(proxy.handler).toBe("reverse_proxy")
+    expect(proxy.flush_interval).toBeUndefined()
   })
 
   test("startup: proxy + docs routes", () => {

@@ -11,6 +11,7 @@ export type CliBodyFlags = CliBooleanPairFlags & {
   kind?: string
   access?: string
   headerUp?: string[]
+  flushInterval?: number
 }
 
 export function cliBodyFromFlags(flags: CliBodyFlags): Result<Record<string, unknown>> {
@@ -54,6 +55,8 @@ export function cliBodyFromFlags(flags: CliBodyFlags): Result<Record<string, unk
     if (!hR.success) return hR
     body.headerUp = hR.data
   }
+
+  if (flags.flushInterval !== undefined) body.flushInterval = flags.flushInterval
 
   return createResult(body)
 }

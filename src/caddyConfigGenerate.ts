@@ -97,6 +97,9 @@ function proxyHandler(project: Project): Record<string, unknown> {
     handler: "reverse_proxy",
     upstreams: [{ dial: `localhost:${project.port}` }],
   }
+  if (project.flushInterval !== undefined) {
+    proxy.flush_interval = project.flushInterval
+  }
   const headerEntries = Object.entries(project.headerUp)
   if (headerEntries.length > 0) {
     const set: Record<string, string[]> = {}

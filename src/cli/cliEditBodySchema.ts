@@ -14,6 +14,7 @@ export const cliEditBodySchema = a.object({
   disabled: a.optional(a.boolean()),
   spa: a.optional(a.boolean()),
   headerUp: a.optional(a.record(a.string(), a.string())),
+  flushInterval: a.optional(a.number()),
 })
 
 export type CliEditBody = a.InferOutput<typeof cliEditBodySchema>

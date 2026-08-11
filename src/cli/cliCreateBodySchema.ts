@@ -14,6 +14,7 @@ export const cliCreateBodySchema = a.object({
   disabled: a.optional(a.boolean()),
   spa: a.optional(a.boolean()),
   headerUp: a.optional(a.record(a.string(), a.string())),
+  flushInterval: a.optional(a.number()),
 })
 
 export type CliCreateBody = a.InferOutput<typeof cliCreateBodySchema>

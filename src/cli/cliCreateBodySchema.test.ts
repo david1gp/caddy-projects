@@ -52,6 +52,17 @@ describe("cliCreateBodySchema", () => {
     if (!r.success) return
     expect(r.output.spa).toBe(true)
   })
+
+  test("accepts flushInterval", () => {
+    const r = a.safeParse(cliCreateBodySchema, {
+      name: "opencode",
+      domains: ["opencode.test"],
+      flushInterval: -1,
+    })
+    expect(r.success).toBe(true)
+    if (!r.success) return
+    expect(r.output.flushInterval).toBe(-1)
+  })
 })
 
 describe("cliEditBodySchema", () => {
@@ -80,5 +91,12 @@ describe("cliEditBodySchema", () => {
     expect(r.success).toBe(true)
     if (!r.success) return
     expect(r.output.spa).toBe(true)
+  })
+
+  test("accepts flushInterval patch", () => {
+    const r = a.safeParse(cliEditBodySchema, { flushInterval: -1 })
+    expect(r.success).toBe(true)
+    if (!r.success) return
+    expect(r.output.flushInterval).toBe(-1)
   })
 })

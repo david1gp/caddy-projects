@@ -15,6 +15,11 @@ const optionalExtras = {
   denyDotfiles: a.optional(a.boolean(), false),
   /** Static SPA: try_files {path} /index.html before file_server */
   spa: a.optional(a.boolean(), false),
+  /**
+   * reverse_proxy flush_interval (Caddy duration ns, or -1 for immediate flush).
+   * Recommended -1 for SSE/streaming backends such as OpenCode.
+   */
+  flushInterval: a.optional(a.number()),
 }
 
 export const projectSchema = a.object({
@@ -55,6 +60,7 @@ export type Project = {
   staticAllow?: string[]
   denyDotfiles?: boolean
   spa?: boolean
+  flushInterval?: number
 }
 
 export const projectInputSchema = a.object({
@@ -93,4 +99,5 @@ export type ProjectInput = {
   staticAllow?: string[]
   denyDotfiles?: boolean
   spa?: boolean
+  flushInterval?: number
 }

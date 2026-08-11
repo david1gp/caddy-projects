@@ -39,6 +39,19 @@ describe("projectSchema", () => {
     expect(r.output.spa).toBe(true)
   })
 
+  test("accepts flushInterval -1", () => {
+    const r = a.safeParse(projectSchema, {
+      port: 4096,
+      domains: ["opencode.example"],
+      name: "opencode",
+      user: "leo",
+      flushInterval: -1,
+    })
+    expect(r.success).toBe(true)
+    if (!r.success) return
+    expect(r.output.flushInterval).toBe(-1)
+  })
+
   test("rejects bad port", () => {
     const r = a.safeParse(projectSchema, {
       port: 0,

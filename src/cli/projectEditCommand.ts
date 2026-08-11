@@ -88,6 +88,12 @@ export const projectEditCommand = buildCommand({
         optional: true,
         brief: "Reverse-proxy header_up as K=V (repeatable)",
       },
+      flushInterval: {
+        kind: "parsed",
+        parse: Number,
+        optional: true,
+        brief: "reverse_proxy flush_interval (-1 for immediate flush / SSE)",
+      },
       ...cliBooleanPairFlags,
       socket: cliSocketFlag,
     },

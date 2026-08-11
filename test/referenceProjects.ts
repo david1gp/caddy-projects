@@ -1,6 +1,6 @@
 import type { Project } from "../src/projectSchema.js"
 
-/** plain proxy, no docs, no auth, multiple domains */
+/** plain proxy, no docs, no auth, multiple domains; flush_interval -1 for SSE */
 export const projectOpencode: Project = {
   port: 4096,
   domains: ["opencode.leonardomora.de", "oc.leonardomora.de", "o.leonardomora.de"],
@@ -15,6 +15,7 @@ export const projectOpencode: Project = {
   shared: false,
   template: false,
   disabled: false,
+  flushInterval: -1,
 }
 
 /** proxy + docs */
