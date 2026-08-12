@@ -1,4 +1,5 @@
 import { buildApplication, buildRouteMap } from "@stricli/core"
+import { packageVersion } from "../packageVersion.js"
 import { configShowCommand } from "./configShowCommand.js"
 import { docsUrlsCommand } from "./docsUrlsCommand.js"
 import { historyShowCommand } from "./historyShowCommand.js"
@@ -32,6 +33,6 @@ export const caddyProjectsApplication = buildApplication(routes, {
     caseStyle: "allow-kebab-for-camel",
   },
   versionInfo: {
-    currentVersion: "0.1.0",
+    currentVersion: packageVersion,
   },
 })
