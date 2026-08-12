@@ -25,7 +25,7 @@ export const docsUrlsCommand = buildCommand({
       const listR = await cliApiFetch(socketPath, "/projects")
       if (!listR.success) cliFail(listR)
       const projects = listR.data as Array<{ name: string; path: string }>
-      const nameR = projectNameFromPath(projects, this.process.cwd())
+      const nameR = projectNameFromPath(projects, process.cwd())
       if (!nameR.success) cliFail(nameR)
       name = nameR.data
     }
