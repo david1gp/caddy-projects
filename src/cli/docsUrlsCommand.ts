@@ -3,6 +3,7 @@ import { cliApiFetch } from "./cliApiFetch.js"
 import { cliFail } from "./cliFail.js"
 import { cliSocketFlag } from "./cliSocketFlag.js"
 import { cliSocketPath } from "./cliSocketPath.js"
+import { projectNameFromPath } from "./projectNameFromPath.js"
 
 type DocsFlags = {
   json?: boolean
@@ -11,9 +12,25 @@ type DocsFlags = {
 }
 
 export const docsUrlsCommand = buildCommand({
-  async func(this: CommandContext, flags: DocsFlags, name: string, path: string) {
+  async func(this: CommandContext, flags: DocsFlags, nameOrPath: string, path?: string) {
     const socketPath = cliSocketPath(flags.socket)
-    const qs = new URLSearchParams({ path })
+
+    let name: string
+    let docsPath: string
+    if (path !== undefined) {
+      name = nameOrPath
+      docsPath = path
+    } else {
+      docsPath = nameOrPath
+      const listR = await cliApiFetch(socketPath, "/projects")
+      if (!listR.success) cliFail(listR)
+      const projects = listR.data as Array<{ name: string; path: string }>
+      const nameR = projectNameFromPath(projects, this.process.cwd())
+      if (!nameR.success) cliFail(nameR)
+      name = nameR.data
+    }
+
+    const qs = new URLSearchParams({ path: docsPath })
     if (flags.http === true) qs.set("scheme", "http")
     const r = await cliApiFetch(socketPath, `/projects/${encodeURIComponent(name)}/docs?${qs.toString()}`)
     if (!r.success) cliFail(r)
@@ -31,14 +48,15 @@ export const docsUrlsCommand = buildCommand({
       kind: "tuple",
       parameters: [
         {
-          brief: "Project name",
+          brief: "Project name, or docs path when name is omitted (inferred from cwd)",
           parse: String,
-          placeholder: "name",
+          placeholder: "name-or-path",
         },
         {
-          brief: "Docs path relative to /docs/ (e.g. guide/intro.md)",
+          brief: "Docs path relative to /docs/ (e.g. guide/intro.md); required when name is given",
           parse: String,
           placeholder: "path",
+          optional: true,
         },
       ],
     },
