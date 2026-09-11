@@ -4,6 +4,8 @@ import * as os from "node:os"
 import { join } from "node:path"
 import { type ApiContext, apiHandle } from "./apiHandle.js"
 import type { CaddyConfigOptions, OidcOptions } from "./caddyConfigOptionsSchema.js"
+import { caddyProjectsVersionMetadataRender } from "./caddyProjectsVersionMetadataRender.js"
+import { packageVersion } from "./packageVersion.js"
 import { projectStoreOpen } from "./projectStoreOpen.js"
 import type { ProjectsRegenerateOptions } from "./projectsRegenerate.js"
 import { systemUserUid } from "./systemUserUid.js"
@@ -153,7 +155,17 @@ async function main() {
   void servers
 }
 
-main().catch((e) => {
-  console.error(e)
-  process.exit(1)
-})
+const args = process.argv.slice(2)
+const versionRequested = args.includes("--version") || args[0] === "version"
+const verboseVersion = versionRequested && args.includes("--verbose")
+
+if (verboseVersion) {
+  process.stdout.write(caddyProjectsVersionMetadataRender())
+} else if (versionRequested) {
+  process.stdout.write(`${packageVersion}\n`)
+} else {
+  main().catch((e) => {
+    console.error(e)
+    process.exit(1)
+  })
+}
